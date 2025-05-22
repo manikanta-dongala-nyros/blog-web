@@ -1,25 +1,17 @@
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/dbConnect";
-import mongoose, { Schema } from "mongoose";
-
-// Define the user schema
-const userSchema = new Schema({
-  email: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-});
-
-// Create or get the User model
-const User = mongoose.models.User || mongoose.model("User", userSchema);
+import User from "@/models/user/user";
 
 export async function POST(request: Request) {
   try {
-    console.log("Attempting to connect to MongoDB...");
-    await dbConnect(); // Added await here
-    console.log("Successfully connected to MongoDB");
+    // console.log("Attempting to connect to MongoDB...");
+    await dbConnect();
+    // console.log("Successfully connected to MongoDB");
 
     const body = await request.json();
     const { email } = body;
 
+    // Validate email
     if (!email || typeof email !== "string") {
       return NextResponse.json(
         { error: "Email is required as a string" },
@@ -36,7 +28,7 @@ export async function POST(request: Request) {
       );
     }
 
-    console.log("User found:", user);
+    console.log("User  found:", { username: user.username, email: user.email }); // Log only the email for security
 
     return NextResponse.json({ success: true, user }, { status: 200 });
   } catch (error) {
