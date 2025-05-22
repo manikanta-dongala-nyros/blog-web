@@ -1,15 +1,34 @@
 import { create } from "zustand";
 
-interface AuthStore {
-  isAuthenticated: boolean;
-  user: { username: string } | null; // Add user field
-  setAuthenticated: (authState: boolean) => void;
-  setUser: (user: { username: string } | null) => void; // Add setUser function
+interface User {
+  _id: string;
+  username: string;
+  email: string;
+  // other user properties
 }
 
-export const useAuthStore = create<AuthStore>((set) => ({
+interface AuthState {
+  isAuthenticated: boolean;
+  user: User | null;
+  setAuthenticated: (isAuthenticated: boolean) => void;
+  setUser: (user: User | null) => void;
+  logout: () => void;
+  updateUserUsername: (newUsername: string) => void; // New action
+}
+
+const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: false,
-  user: null, // Initialize user as null
-  setAuthenticated: (authState) => set({ isAuthenticated: authState }),
-  setUser: (user) => set({ user }), // Implement setUser
+  user: null,
+  setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
+  setUser: (user) => set({ user }),
+  logout: () => set({ isAuthenticated: false, user: null }),
+  updateUserUsername: (
+    newUsername // New action implementation
+  ) =>
+    set((state) => ({
+      ...state,
+      user: state.user ? { ...state.user, username: newUsername } : null,
+    })),
 }));
+
+export default useAuthStore;

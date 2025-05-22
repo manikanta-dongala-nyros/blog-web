@@ -12,6 +12,7 @@ const NavBar = () => {
     { label: "Users", path: "/users" },
     { label: "Saved Blogs", path: "/saved" },
     { label: "Contact", path: "/contact" },
+    { label: "MyAccount", path: "/myaccount" },
   ];
 
   return (

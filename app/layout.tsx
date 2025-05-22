@@ -1,6 +1,3 @@
-import { SessionProvider } from "next-auth/react";
-import AuthProvider from "@/components/AuthProvider"; // Adjust path if AuthProvider is elsewhere
-import ClientProviders from "@/components/ClientProviders"; // Import the new ClientProviders component
 import "./globals.css";
 import { Inter } from "next/font/google";
 
@@ -19,11 +16,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <ClientProviders>
-          {" "}
-          {/* Use ClientProviders to wrap children */}
-          {children}
-        </ClientProviders>
+        {" "}
+        {/* Use ClientProviders to wrap children */}
+        {children}
       </body>
     </html>
   );

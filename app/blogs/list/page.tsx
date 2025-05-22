@@ -7,7 +7,7 @@ import Link from "next/link";
 import Swal from "sweetalert2";
 import NavBar from "@/components/common/GenericForm/Navbar";
 import { useRouter } from "next/navigation"; // Import useRouter
-import { useAuthStore } from "@/stores/authStore"; // Import useAuthStore
+import useAuthStore from "@/stores/authStore";
 
 type Post = {
   id: string;

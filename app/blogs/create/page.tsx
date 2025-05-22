@@ -7,7 +7,7 @@ import Swal from "sweetalert2";
 import GenericForm from "@/components/common/GenericForm/GenericForm";
 import { FormConfig } from "@/components/common/GenericForm/types";
 import NavBar from "@/components/common/GenericForm/Navbar";
-import { useAuthStore } from "@/stores/authStore"; // Import useAuthStore
+import useAuthStore from "@/stores/authStore";
 
 const CreateBlog = () => {
   const router = useRouter();

@@ -2,11 +2,11 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthStore } from "@/stores/authStore";
 import GenericForm from "@/components/common/GenericForm/GenericForm";
 import { FormConfig } from "@/components/common/GenericForm/types";
 import Link from "next/link";
 import Swal from "sweetalert2";
+import useAuthStore from "@/stores/authStore";
 
 export default function LoginPage() {
   const router = useRouter();
