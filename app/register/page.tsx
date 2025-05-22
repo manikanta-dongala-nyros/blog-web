@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore"; // Assuming you have an auth store
 import GenericForm from "@/components/common/GenericForm/GenericForm";
 import { FormConfig } from "@/components/common/GenericForm/types";
+import Swal from "sweetalert2";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -30,9 +31,22 @@ export default function RegisterPage() {
         throw new Error("Registration failed");
       }
 
-      router.push("/login"); // Redirect to login page after registration
+      Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Registration successful! Please login.",
+        timer: 1500,
+        showConfirmButton: false,
+      }).then(() => {
+        router.push("/login"); // Redirect to login page after registration
+      });
     } catch (error) {
       console.error("Registration error:", error);
+      Swal.fire({
+        icon: "error",
+        title: "Registration Failed",
+        text: "Failed to create account. Please try again.",
+      });
     }
   };
 

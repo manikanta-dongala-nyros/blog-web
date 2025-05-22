@@ -1,35 +1,28 @@
-import { NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
-import mongoose from "mongoose";
+import { NextRequest, NextResponse } from "next/server";
+import BlogModel from "@/models/blogs/blog";
+import { dbConnect } from "@/lib/dbConnect";
 
-// Get the Blog model
-const BlogModel =
-  mongoose.models.Blog ||
-  mongoose.model(
-    "Blog",
-    new mongoose.Schema({
-      title: { type: String, required: true },
-      slug: { type: String, required: true, unique: true },
-      content: { type: String, required: true },
-      author: { type: String, required: true },
-      tags: [{ type: String }],
-      published: { type: Boolean, default: false },
-      createdAt: { type: Date, default: Date.now },
-      updatedAt: { type: Date, default: Date.now },
-    })
-  );
-
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     await dbConnect();
 
-    const blogs = await BlogModel.find({});
-    return NextResponse.json(blogs);
-  } catch (error) {
+    const posts = await BlogModel.find({}).sort({ createdAt: -1 }).lean();
+
+    // // Map _id to id for frontend consistency and remove _id
+    // const processedPosts = posts.map(({ _id, ...rest }) => ({
+    //   ...rest,
+    //   id: _id.toString(),
+    // }));
+
+    return NextResponse.json(posts);
+  } catch (error: unknown) {
     console.error("Error fetching blog posts:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch blog posts" },
-      { status: 500 }
-    );
+
+    let errorMessage = "Failed to fetch blog posts.";
+    if (error instanceof Error) {
+      errorMessage = error.message;
+    }
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

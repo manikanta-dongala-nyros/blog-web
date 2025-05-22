@@ -1,54 +1,132 @@
-import { NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
-import mongoose from "mongoose";
+import { NextRequest, NextResponse } from "next/server";
+import { dbConnect, getGFS } from "@/lib/mongodb";
+import BlogModel, { IBlog } from "@/models/blogs/blog"; // Import IBlog as well
+import mongoose from "mongoose"; // Import mongoose
 
-// Get the Blog model
-const BlogModel =
-  mongoose.models.Blog ||
-  mongoose.model(
-    "Blog",
-    new mongoose.Schema({
-      title: { type: String, required: true },
-      slug: { type: String, required: true, unique: true },
-      content: { type: String, required: true },
-      author: { type: String, required: true },
-      tags: [{ type: String }],
-      published: { type: Boolean, default: false },
-      createdAt: { type: Date, default: Date.now },
-      updatedAt: { type: Date, default: Date.now },
-    })
-  );
-
-export async function PUT(request: Request) {
+export async function PUT(request: NextRequest) {
   try {
-    await dbConnect();
+    await dbConnect(); // Added await here
+    const gfs = await getGFS();
 
-    const body = await request.json();
-    const { id, ...updateData } = body;
+    const formData = await request.formData();
+    const data: { [key: string]: any } = {};
+    let file: File | null = null;
+    let blogId: string | null = null;
 
-    if (!id) {
+    for (const [key, value] of formData.entries()) {
+      if (key === "id") {
+        // Assuming 'id' is passed in form data for the blog post
+        blogId = value as string;
+      } else if (value instanceof File) {
+        file = value;
+      } else {
+        data[key] = value;
+      }
+    }
+
+    if (!blogId) {
       return NextResponse.json(
         { error: "Blog ID is required" },
         { status: 400 }
       );
     }
 
-    const updatedBlog = await BlogModel.findByIdAndUpdate(id, updateData, {
-      new: true,
-    });
-
-    if (!updatedBlog) {
+    const existingBlog = await BlogModel.findById(blogId);
+    if (!existingBlog) {
       return NextResponse.json(
         { error: "Blog post not found" },
         { status: 404 }
       );
     }
 
+    const updateData: Partial<IBlog> = { ...data }; // Spread other form fields
+    updateData.updatedAt = new Date();
+    if (data.tags && typeof data.tags === "string") {
+      updateData.tags = data.tags.split(",").map((tag: string) => tag.trim());
+    }
+    if (data.published !== undefined) {
+      updateData.published =
+        data.published === "true" || data.published === true;
+    }
+
+    if (file) {
+      // Validate file size first
+      if (file.size > 5 * 1024 * 1024) {
+        // 5MB limit
+        return NextResponse.json(
+          { error: "File size exceeds 5MB limit" },
+          { status: 400 }
+        );
+      }
+
+      let uploadSuccess = false;
+      try {
+        // If there's an old image, delete it
+        if (existingBlog.imageId) {
+          await gfs.delete(new mongoose.Types.ObjectId(existingBlog.imageId));
+        }
+
+        // Upload new image
+        const buffer = Buffer.from(await file.arrayBuffer());
+        const uploadStream = gfs.openUploadStream(file.name, {
+          contentType: file.type,
+        });
+
+        uploadStream.write(buffer);
+        uploadStream.end();
+
+        await new Promise<void>((resolve, reject) => {
+          uploadStream.on("finish", () => {
+            uploadSuccess = true;
+            updateData.imageId = uploadStream.id as mongoose.Types.ObjectId;
+            updateData.imageMimeType = file!.type;
+            resolve();
+          });
+          uploadStream.on("error", (err) => {
+            console.error("GridFS upload error during update:", err);
+            reject(err);
+          });
+        });
+      } catch (error) {
+        // Clean up if upload failed
+        if (!uploadSuccess && updateData.imageId) {
+          await gfs.delete(updateData.imageId);
+        }
+        throw error;
+      }
+    }
+    // If 'removeImage' field is true and no new file, clear image fields
+    else if (data.removeImage === "true" || data.removeImage === true) {
+      if (existingBlog.imageId) {
+        try {
+          await gfs.delete(new mongoose.Types.ObjectId(existingBlog.imageId));
+        } catch (deleteError) {
+          console.warn("Failed to delete image during removal:", deleteError);
+        }
+      }
+      updateData.imageId = undefined; // Using 'undefined' to remove field with Mongoose
+      updateData.imageMimeType = undefined;
+    }
+
+    const updatedBlog = await BlogModel.findByIdAndUpdate(
+      blogId,
+      { $set: updateData }, // Use $set to ensure only provided fields are updated
+      { new: true, runValidators: true }
+    );
+
+    if (!updatedBlog) {
+      // This case should ideally be caught by existingBlog check, but as a safeguard:
+      return NextResponse.json(
+        { error: "Blog post not found after update attempt" },
+        { status: 404 }
+      );
+    }
+
     return NextResponse.json(updatedBlog);
-  } catch (error) {
+  } catch (error: any) {
     console.error("Error updating blog post:", error);
     return NextResponse.json(
-      { error: "Failed to update blog post" },
+      { error: "Failed to update blog post", details: error.message },
       { status: 500 }
     );
   }

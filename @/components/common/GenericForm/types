@@ -1,0 +1,11 @@
+// ... existing code ...
+export interface FormFieldConfig {
+  name: string;
+  label: string;
+  type: string;
+  required?: boolean;
+  // Add this line:
+  accept?: string;
+  // ... any other properties ...
+}
+// ... existing code ...

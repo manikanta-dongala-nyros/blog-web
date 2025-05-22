@@ -1,14 +1,32 @@
-// zod/schemas/blog.ts
-import { z } from "zod";
+import mongoose, { Document, Schema, Model } from 'mongoose';
 
-export const blogPostSchema = z.object({
-  id: z.string().uuid(),
-  title: z.string().min(1, "Title is required"),
-  slug: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Invalid slug format"),
-  content: z.string().min(1, "Content cannot be empty"),
-  author: z.string().min(1),
-  tags: z.array(z.string()).optional(),
-  published: z.boolean(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
+export interface IBlog extends Document {
+  title: string;
+  slug: string;
+  content: string;
+  author: string;
+  tags: string[];
+  published: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  imageId?: mongoose.Types.ObjectId; // Stores the ID of the image in GridFS
+  imageMimeType?: string; // Stores the MIME type of the image
+}
+
+const BlogSchema: Schema<IBlog> = new mongoose.Schema({
+  title: { type: String, required: true },
+  slug: { type: String, required: true, unique: true },
+  content: { type: String, required: true },
+  author: { type: String, required: true },
+  tags: [{ type: String }],
+  published: { type: Boolean, default: false },
+  createdAt: { type: Date, default: Date.now },
+  updatedAt: { type: Date, default: Date.now },
+  imageId: { type: mongoose.Schema.Types.ObjectId, required: false },
+  imageMimeType: { type: String, required: false },
 });
+
+// Ensure the model is not recompiled if it already exists
+const BlogModel: Model<IBlog> = mongoose.models.Blog || mongoose.model<IBlog>('Blog', BlogSchema);
+
+export default BlogModel;

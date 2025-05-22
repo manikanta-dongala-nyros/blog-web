@@ -1,43 +1,21 @@
-import mongoose, { Mongoose } from "mongoose";
+import { MongoClient, MongoClientOptions } from "mongodb";
 
-const MONGODB_URI = process.env.MONGODB_URI || "";
+const uri = process.env.MONGODB_URI!;
+const options: MongoClientOptions = {};
+let clientPromise: Promise<MongoClient>;
 
-if (!MONGODB_URI) {
-  throw new Error(
-    "Please define the MONGODB_URI environment variable in .env.local"
-  );
-}
-
-// Extend NodeJS global object to hold the cached connection
-declare global {
-  // eslint-disable-next-line no-var
-  var mongooseConn: {
-    conn: Mongoose | null;
-    promise: Promise<Mongoose> | null;
+if (process.env.NODE_ENV === "development") {
+  const globalWithMongo = global as typeof globalThis & {
+    _mongoClientPromise?: Promise<MongoClient>;
   };
-}
-
-// Initialize global cache if not already set
-if (!global.mongooseConn) {
-  global.mongooseConn = {
-    conn: null,
-    promise: null,
-  };
-}
-
-const cached = global.mongooseConn;
-
-async function dbConnect(): Promise<Mongoose> {
-  if (cached.conn) return cached.conn;
-
-  if (!cached.promise) {
-    cached.promise = mongoose.connect(MONGODB_URI, {
-      bufferCommands: false,
-    });
+  if (!globalWithMongo._mongoClientPromise) {
+    const client = new MongoClient(uri, options);
+    globalWithMongo._mongoClientPromise = client.connect();
   }
-
-  cached.conn = await cached.promise;
-  return cached.conn;
+  clientPromise = globalWithMongo._mongoClientPromise;
+} else {
+  const client = new MongoClient(uri, options);
+  clientPromise = client.connect();
 }
 
-export default dbConnect;
+export default clientPromise;

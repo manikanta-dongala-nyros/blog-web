@@ -6,14 +6,18 @@ import { useBlogStore } from "@/stores/blogStore";
 import { BlogPost } from "@/types/blog";
 import GenericForm from "@/components/common/GenericForm/GenericForm";
 import { FormConfig } from "@/components/common/GenericForm/types";
+import Swal from "sweetalert2";
+import NavBar from "@/components/common/GenericForm/Navbar";
 
-const EditBlog = ({ params }: { params: Promise<{ id: string }> }) => {
+const EditBlog = ({ params }: { params: { id: string } }) => {
   const router = useRouter();
   const updatePost = useBlogStore((state) => state.updatePost);
   const posts = useBlogStore((state) => state.posts);
+  const selectedPost = useBlogStore((state) => state.selectedPost);
+  const fetchPost = useBlogStore((state) => state.fetchPost);
+  const clearSelectedPost = useBlogStore((state) => state.clearSelectedPost);
 
-  const resolvedParams = use(params);
-  const postId = resolvedParams.id;
+  const postId = params.id;
 
   const [formData, setFormData] = useState({
     title: "",
@@ -25,67 +29,96 @@ const EditBlog = ({ params }: { params: Promise<{ id: string }> }) => {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    const post = posts.find((p) => p.id === postId);
-    if (post) {
-      setFormData({
-        title: post.title,
-        content: post.content,
-        author: post.author,
-        tags: post.tags?.join(", ") || "",
-        published: post.published,
+    // Fetch the post if it's not already selected or if the selected post doesn't match the current ID
+    if (!selectedPost || selectedPost.id !== postId) {
+      fetchPost(postId).then(() => {
+        // After fetching, get the latest selectedPost from the store
+        const post = useBlogStore.getState().selectedPost;
+        if (post && post.id === postId) {
+          setFormData({
+            title: post.title,
+            content: post.content,
+            author: post.author,
+            tags: post.tags?.join(", ") || "",
+            published: post.published,
+          });
+          setError(null);
+        }
       });
     } else {
-      setError("Blog post not found.");
+      setFormData({
+        title: selectedPost.title,
+        content: selectedPost.content,
+        author: selectedPost.author,
+        tags: selectedPost.tags?.join(", ") || "",
+        published: selectedPost.published,
+      });
+      setError(null);
     }
-  }, [postId, posts]);
+  }, [postId, selectedPost, fetchPost]); // Add fetchPost to dependencies
+
+  // Optional: Clear selected post when component unmounts
+  useEffect(() => {
+    return () => {
+      clearSelectedPost();
+    };
+  }, [clearSelectedPost]);
 
   const handleSubmit = async (values: any) => {
+    const formData = new FormData();
+    formData.append("id", postId);
+    formData.append("title", values.title);
+    formData.append("content", values.content);
+    formData.append("author", values.author);
+    formData.append("tags", values.tags);
+    formData.append("published", values.published);
+    if (values.image) {
+      formData.append("file", values.image);
+    }
+
     setIsLoading(true);
     setError(null);
-    setSuccess(null);
-
-    const updatedPost: BlogPost = {
-      id: postId,
-      title: values.title,
-      slug: values.title.toLowerCase().replace(/\s+/g, "-"),
-      content: values.content,
-      author: values.author,
-      tags: values.tags
-        .split(",")
-        .map((tag: string) => tag.trim())
-        .filter((tag: string) => tag !== ""),
-      published: values.published,
-      updatedAt: new Date().toISOString(),
-      createdAt:
-        posts.find((p) => p.id === postId)?.createdAt ||
-        new Date().toISOString(),
-    };
 
     try {
-      const response = await fetch(`/api/blog/${postId}`, {
+      const response = await fetch("/api/blog/update", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updatedPost),
+        body: formData,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to update blog post");
-      }
+      const postToUpdate: BlogPost = {
+        id: postId,
+        title: values.title,
+        slug: (values.title || "").toLowerCase().replace(/\s+/g, "-"),
+        content: values.content,
+        author: values.author,
+        tags: (values.tags || "")
+          .split(",")
+          .map((tag: string) => tag.trim())
+          .filter((tag: string) => tag !== ""),
+        published: values.published,
+        updatedAt: new Date().toISOString(),
+        // Use the createdAt from the fetched selectedPost
+        createdAt: selectedPost?.createdAt || new Date().toISOString(),
+      };
 
-      updatePost(updatedPost);
-      setSuccess("Blog post updated successfully!");
-      setTimeout(() => {
+      await updatePost(postToUpdate);
+      Swal.fire({
+        icon: "success",
+        title: "Success!",
+        text: "Blog post updated successfully!",
+        timer: 1500,
+        showConfirmButton: false,
+      }).then(() => {
         router.push("/blogs/list");
-      }, 1500);
+      });
     } catch (err: any) {
-      console.error("Error updating blog post:", err);
-      setError(err.message || "An unexpected error occurred.");
+      console.error(
+        "Error caught in component after store update attempt:",
+        err
+      );
+      setError(err.message || "An unexpected error occurred while updating.");
     } finally {
       setIsLoading(false);
     }
@@ -121,43 +154,51 @@ const EditBlog = ({ params }: { params: Promise<{ id: string }> }) => {
         label: "Published",
         type: "checkbox",
       },
+      {
+        name: "image",
+        label: "Featured Image",
+        type: "file",
+      },
     ],
     onSubmit: handleSubmit,
     submitLabel: isLoading ? "Updating..." : "Update Post",
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl px-10 py-12">
-        <h1 className="text-4xl font-extrabold text-center text-gray-800 mb-10 tracking-tight">
-          📝 Edit Blog Post
-        </h1>
+    <>
+      <NavBar />
+      <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-xl px-10 py-12">
+          <h1 className="text-4xl font-extrabold text-center text-gray-800 mb-10 tracking-tight">
+            📝 Edit Blog Post
+          </h1>
 
-        {isLoading && (
-          <div className="text-center text-blue-600 mb-4">Updating post...</div>
-        )}
-        {error && (
-          <div
-            className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"
-            role="alert"
-          >
-            <strong className="font-bold">Error!</strong>
-            <span className="block sm:inline"> {error}</span>
-          </div>
-        )}
-        {success && (
-          <div
-            className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-4"
-            role="alert"
-          >
-            <strong className="font-bold">Success!</strong>
-            <span className="block sm:inline"> {success}</span>
-          </div>
-        )}
+          {isLoading && (
+            <div className="text-center text-blue-600 mb-4">
+              Updating post...
+            </div>
+          )}
 
-        {!error && <GenericForm {...editBlogConfig} className="space-y-6" />}
+          {/* Show form only when selectedPost is loaded and matches the current ID */}
+          {selectedPost && selectedPost.id === postId && !error ? (
+            <GenericForm
+              {...editBlogConfig}
+              initialValues={formData}
+              className="space-y-6"
+            />
+          ) : (
+            // Show loading or error message if post is not loaded
+            !error && (
+              <p className="text-center text-gray-500">Loading post...</p>
+            )
+          )}
+
+          {error && (
+            <div className="text-center text-red-600 mb-4">Error: {error}</div>
+          )}
+        </div>
       </div>
-    </div>
+    </>
   );
 };
 

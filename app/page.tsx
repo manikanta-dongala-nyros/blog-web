@@ -1,142 +1,39 @@
 "use client";
 
-import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import NavBar from "@/components/common/GenericForm/Navbar";
 
-type BlogPost = {
-  id: number;
-  title: string;
-  content: string;
-};
-
-export default function HomePage() {
-  const [posts, setPosts] = useState<BlogPost[]>([
-    {
-      id: 1,
-      title: "Welcome to My Blog",
-      content: "This is the first post.",
-    },
-  ]);
-
-  const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-  });
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newPost: BlogPost = {
-      id: posts.length + 1,
-      title: formData.title,
-      content: formData.content,
-    };
-    setPosts([...posts, newPost]);
-    setFormData({ title: "", content: "" }); // Reset form
-  };
-
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
-  ) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
+const HomePage = () => {
+  const router = useRouter();
 
   return (
-    <main style={{ padding: "2rem", fontFamily: "sans-serif" }}>
-      <h1>📝 Blog Viewer</h1>
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-blue-100 flex flex-col">
+      <NavBar />
 
-      <form
-        onSubmit={handleSubmit}
-        style={{
-          marginBottom: "2rem",
-          padding: "1rem",
-          border: "1px solid #ccc",
-          borderRadius: "0.5rem",
-        }}
-      >
-        <div style={{ marginBottom: "1rem" }}>
-          <label
-            htmlFor="title"
-            style={{ display: "block", marginBottom: "0.5rem" }}
-          >
-            Title:
-          </label>
-          <input
-            type="text"
-            id="title"
-            name="title"
-            value={formData.title}
-            onChange={handleChange}
-            required
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              borderRadius: "0.25rem",
-              border: "1px solid #ccc",
-            }}
-          />
-        </div>
-
-        <div style={{ marginBottom: "1rem" }}>
-          <label
-            htmlFor="content"
-            style={{ display: "block", marginBottom: "0.5rem" }}
-          >
-            Content:
-          </label>
-          <textarea
-            id="content"
-            name="content"
-            value={formData.content}
-            onChange={handleChange}
-            required
-            style={{
-              width: "100%",
-              padding: "0.5rem",
-              borderRadius: "0.25rem",
-              border: "1px solid #ccc",
-              minHeight: "100px",
-            }}
-          />
-        </div>
+      {/* Hero Section */}
+      <header className="flex-grow flex flex-col justify-center items-center text-center px-4 md:px-0 max-w-4xl mx-auto mt-16">
+        <h1 className="text-5xl font-extrabold text-blue-800 mb-6 leading-tight">
+          Welcome to <span className="text-blue-600">MyBlogApp</span>
+        </h1>
+        <p className="text-lg text-gray-700 max-w-xl mb-10">
+          Explore the latest trending posts, insightful blogs, connect with
+          users, and save your favorite content — all in one place.
+        </p>
 
         <button
-          type="submit"
-          style={{
-            background: "#0070f3",
-            color: "white",
-            padding: "0.5rem 1rem",
-            borderRadius: "0.25rem",
-            border: "none",
-            cursor: "pointer",
-          }}
+          onClick={() => router.push("/blogs/list")}
+          className="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-8 py-3 rounded-lg shadow-md transition"
         >
-          Add Post
+          Browse Blogs
         </button>
-      </form>
+      </header>
 
-      {posts.length === 0 ? (
-        <p>No blog posts yet.</p>
-      ) : (
-        <ul style={{ listStyle: "none", padding: 0 }}>
-          {posts.map((post) => (
-            <li
-              key={post.id}
-              style={{
-                marginBottom: "1rem",
-                padding: "1rem",
-                border: "1px solid #ccc",
-                borderRadius: "0.5rem",
-              }}
-            >
-              <h2>{post.title}</h2>
-              <p>{post.content}</p>
-            </li>
-          ))}
-        </ul>
-      )}
-    </main>
+      {/* Footer */}
+      <footer className="bg-white mt-auto py-6 shadow-inner text-center text-gray-600">
+        &copy; {new Date().getFullYear()} MyBlogApp. All rights reserved.
+      </footer>
+    </div>
   );
-}
+};
+
+export default HomePage;

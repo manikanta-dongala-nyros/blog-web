@@ -1,13 +1,25 @@
-export type FieldType = 'text' | 'textarea' | 'number' | 'email' | 'password' | 'select' | 'checkbox' | 'radio' | 'date' | 'file';
+export type FieldType =
+  | "text"
+  | "textarea"
+  | "number"
+  | "email"
+  | "password"
+  | "select"
+  | "checkbox"
+  | "radio"
+  | "date"
+  | "file";
 
 export interface FormFieldConfig {
   name: string;
   label: string;
-  type: FieldType;
-  placeholder?: string;
-  options?: { label: string; value: string | number }[];
-  defaultValue?: any;
+  type: string;
   required?: boolean;
+  placeholder?: string;
+  defaultValue?: any;
+  accept?: string; // <-- Add this line
+  options?: { label: string; value: string | number }[];
+
   disabled?: boolean;
   className?: string;
 }

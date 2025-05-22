@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import dbConnect from "@/lib/mongodb";
+import { dbConnect } from "@/lib/dbConnect";
 import mongoose, { Schema } from "mongoose";
 
 // Define the user schema
@@ -14,7 +14,7 @@ const User = mongoose.models.User || mongoose.model("User", userSchema);
 export async function POST(request: Request) {
   try {
     console.log("Attempting to connect to MongoDB...");
-    await dbConnect();
+    await dbConnect(); // Added await here
     console.log("Successfully connected to MongoDB");
 
     const body = await request.json();
