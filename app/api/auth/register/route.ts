@@ -4,9 +4,9 @@ import User from "@/models/user/user"; // Use your central User model
 
 export async function POST(request: Request) {
   try {
-    console.log("Connecting to MongoDB...");
+    // console.log("Connecting to MongoDB...");
     await dbConnect(); // Consistent DB connection
-    console.log("Connected to MongoDB");
+    // console.log("Connected to MongoDB");
 
     const body = await request.json();
     const { username, email } = body;
