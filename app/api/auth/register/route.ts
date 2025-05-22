@@ -1,22 +1,12 @@
 import { NextResponse } from "next/server";
-import clientPromise from "@/lib/mongodb";
-import mongoose, { Schema } from "mongoose";
-
-// Define the user schema
-const userSchema = new Schema({
-  username: { type: String, required: true },
-  email: { type: String, required: true },
-  createdAt: { type: Date, default: Date.now },
-});
-
-// Create or get the User model
-const User = mongoose.models.User || mongoose.model("User", userSchema);
+import { dbConnect } from "@/lib/dbConnect"; // Use consistent connection utility
+import User from "@/models/user/user"; // Use your central User model
 
 export async function POST(request: Request) {
   try {
-    console.log("Attempting to connect to MongoDB...");
-    await clientPromise; // Added await here
-    console.log("Successfully connected to MongoDB");
+    console.log("Connecting to MongoDB...");
+    await dbConnect(); // Consistent DB connection
+    console.log("Connected to MongoDB");
 
     const body = await request.json();
     const { username, email } = body;
@@ -28,14 +18,23 @@ export async function POST(request: Request) {
       );
     }
 
-    // Create new user
-    const user = new User({ username, email });
-    await user.save();
-    console.log("User registered successfully:", user);
+    // Check for existing user
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return NextResponse.json(
+        { error: "User with this email already exists" },
+        { status: 409 }
+      );
+    }
 
-    return NextResponse.json({ success: true, user }, { status: 201 });
+    // Create new user
+    const newUser = new User({ username, email });
+    await newUser.save();
+    console.log("User registered successfully:", newUser);
+
+    return NextResponse.json({ success: true, user: newUser }, { status: 201 });
   } catch (error) {
-    console.error("Detailed registration error:", error);
+    console.error("Registration error:", error);
     return NextResponse.json(
       {
         error: "Registration failed",

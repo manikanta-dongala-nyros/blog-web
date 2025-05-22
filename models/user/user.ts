@@ -2,7 +2,8 @@ import mongoose, { Schema } from "mongoose";
 
 // Define the user schema
 const userSchema = new Schema({
-  email: { type: String, required: true },
+  username: { type: String, required: true },
+  email: { type: String, required: true, unique: true },
   createdAt: { type: Date, default: Date.now },
 });
 

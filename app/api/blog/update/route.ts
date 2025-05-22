@@ -1,14 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { dbConnect, getGFS } from "@/lib/mongodb";
-import BlogModel, { IBlog } from "@/models/blogs/blog"; // Import IBlog as well
-import mongoose from "mongoose"; // Import mongoose
+import { dbConnect } from "@/lib/dbConnect";
+import { saveToGridFS } from "@/lib/gridfs"; // Keep saveToGridFS if needed elsewhere
+import BlogModel, { IBlog } from "@/models/blogs/blog";
+import mongoose from "mongoose";
+import { getGFS } from "../[id]/route"; // Corrected import path and function name
 
 export async function PUT(request: NextRequest) {
   try {
     await dbConnect(); // Added await here
-    const gfs = await getGFS();
+    // Get the GridFS bucket instance using the correct function from gridfs.ts
+    const gfs = await getGFS(); // Use getGFS instead of getGridFSBucket
 
-    const formData = await request.formData();
+    const formData = await request.formData(); // Error happens here if Content-Type is wrong
     const data: { [key: string]: any } = {};
     let file: File | null = null;
     let blogId: string | null = null;

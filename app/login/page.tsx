@@ -12,6 +12,7 @@ export default function LoginPage() {
   const router = useRouter();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const setAuthenticated = useAuthStore((state) => state.setAuthenticated);
+  const setUser = useAuthStore((state) => state.setUser); // Get setUser from store
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -32,7 +33,14 @@ export default function LoginPage() {
       if (!response.ok) {
         throw new Error("Login failed");
       }
+
+      const userData = await response.json(); // Assuming API returns user data like { username: '...' }
+
       setAuthenticated(true);
+      setUser(userData); // Set user data in the store
+
+      // Redirect immediately after successful authentication and state update
+      router.push("/blogs/list");
 
       Swal.fire({
         icon: "success",
@@ -40,8 +48,6 @@ export default function LoginPage() {
         text: "Login successful!",
         timer: 1500,
         showConfirmButton: false,
-      }).then(() => {
-        router.push("/blogs/list"); // Redirect to home page after login
       });
     } catch (error) {
       console.error("Login error:", error);
