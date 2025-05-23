@@ -1,34 +1,81 @@
 import { create } from "zustand";
 
-interface User {
-  _id: string;
-  username: string;
-  email: string;
-  // other user properties
-}
-
-interface AuthState {
+interface AuthStore {
   isAuthenticated: boolean;
-  user: User | null;
-  setAuthenticated: (isAuthenticated: boolean) => void;
-  setUser: (user: User | null) => void;
-  logout: () => void;
-  updateUserUsername: (newUsername: string) => void; // New action
+  isLoading: boolean;
+  hasHydrated: boolean; // ✅ NEW
+  user: any | null;
+  lastPath: string;
+  setAuth: (status: boolean) => void;
+  setUser: (user: any) => void;
+  setLastPath: (path: string) => void;
+  hydrate: () => void;
+  validateRedirectPath: (path: string) => string;
 }
 
-const useAuthStore = create<AuthState>((set) => ({
+const validPaths = ["/", "/blogs/list", "/blogs/create", "/myaccount"];
+
+// Add function to validate edit paths
+const isValidPath = (path: string) => {
+  if (validPaths.includes(path)) return true;
+  // Allow edit paths
+  return path.startsWith("/blogs/edit/");
+};
+
+export const useAuthStore = create<AuthStore>((set) => ({
   isAuthenticated: false,
+  isLoading: true,
+  hasHydrated: false, // ✅ INIT
+
   user: null,
-  setAuthenticated: (isAuthenticated) => set({ isAuthenticated }),
-  setUser: (user) => set({ user }),
-  logout: () => set({ isAuthenticated: false, user: null }),
-  updateUserUsername: (
-    newUsername // New action implementation
-  ) =>
-    set((state) => ({
-      ...state,
-      user: state.user ? { ...state.user, username: newUsername } : null,
-    })),
+  lastPath: "/",
+
+  setAuth: (status) => {
+    set({ isAuthenticated: status });
+    localStorage.setItem("isAuthenticated", JSON.stringify(status));
+  },
+
+  setUser: (user) => {
+    set({ user });
+    localStorage.setItem("user", JSON.stringify(user));
+  },
+
+  setLastPath: (path) => {
+    if (isValidPath(path)) {
+      set({ lastPath: path });
+      localStorage.setItem("lastPath", path);
+    }
+  },
+
+  validateRedirectPath: (path) => {
+    return isValidPath(path) ? path : "/";
+  },
+
+  hydrate: () => {
+    set({ isLoading: true });
+
+    try {
+      const storedAuth = localStorage.getItem("isAuthenticated");
+      const storedUser = localStorage.getItem("user");
+      const storedPath = localStorage.getItem("lastPath");
+
+      if (storedAuth) {
+        set({ isAuthenticated: JSON.parse(storedAuth) });
+      }
+
+      if (storedUser) {
+        set({ user: JSON.parse(storedUser) });
+      }
+
+      if (storedPath && validPaths.includes(storedPath)) {
+        set({ lastPath: storedPath });
+      }
+    } catch (error) {
+      console.error("Error during hydration:", error);
+    } finally {
+      set({ isLoading: false, hasHydrated: true }); // ✅ FINISH
+    }
+  },
 }));
 
 export default useAuthStore;

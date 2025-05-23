@@ -6,45 +6,67 @@ import { format } from "date-fns";
 import Link from "next/link";
 import Swal from "sweetalert2";
 import NavBar from "@/components/common/GenericForm/Navbar";
-import { useRouter } from "next/navigation"; // Import useRouter
+import { useRouter } from "next/navigation";
 import useAuthStore from "@/stores/authStore";
 
 type Post = {
   id: string;
   title: string;
-  author: string;
-  createdAt: string;
-  tags?: string[];
+  slug: string;
   content: string;
+  author: string;
+  tags: string[];
+  published: boolean;
+  createdAt: string | Date;
+  updatedAt: string | Date;
   imageId?: string;
+  imageMimeType?: string;
 };
 
 const BlogList = () => {
+  // ✅ All hooks should be at the top
   const posts = useBlogStore((state) => state.posts) as Post[];
   const isLoading = useBlogStore((state) => state.isLoading);
   const fetchPosts = useBlogStore((state) => state.fetchPosts);
   const deletePost = useBlogStore((state) => state.deletePost);
-  const router = useRouter(); // Get router instance
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated); // Get auth state
 
-  // Effect to check authentication status
+  const { isAuthenticated, hydrate } = useAuthStore();
+  const hasHydrated = useAuthStore((state) => !state.isLoading);
+  const router = useRouter();
+
+  // ✅ Ensure hydration is triggered on mount
   useEffect(() => {
-    if (!isAuthenticated) {
-      router.push("/login"); // Redirect to login if not authenticated
+    hydrate();
+  }, [hydrate]);
+
+  // ✅ Redirect unauthenticated users after hydration
+  useEffect(() => {
+    if (hasHydrated && !isAuthenticated) {
+      router.push("/login");
     }
-  }, [isAuthenticated, router]); // Depend on isAuthenticated and router
+  }, [hasHydrated, isAuthenticated, router]);
 
-  console.log("Posts:", posts);
+  // ✅ Fetch blog posts only after hydration
   useEffect(() => {
-    fetchPosts();
-  }, [fetchPosts]);
+    if (hasHydrated && isAuthenticated) {
+      fetchPosts();
+    }
+  }, [hasHydrated, isAuthenticated, fetchPosts]);
 
+  // ✅ Debugging info (optional)
   useEffect(() => {
-    console.log(
-      "Blog posts with imageId:",
-      posts.map((p) => ({ id: p.id, imageId: p.imageId }))
-    );
-  }, [posts]);
+    if (hasHydrated && posts.length > 0) {
+      console.log(
+        "Blog posts with imageId:",
+        posts.map((p) => ({ id: p.id, imageId: p.imageId }))
+      );
+    }
+  }, [hasHydrated, posts]);
+
+  // ✅ Guarded early return AFTER all hooks
+  if (!hasHydrated) {
+    return <div className="p-8 text-center">🔄 Authenticating...</div>;
+  }
 
   const handleDeletePost = async (id: string) => {
     const result = await Swal.fire({
@@ -62,7 +84,7 @@ const BlogList = () => {
         await deletePost(id);
         Swal.fire("Deleted!", "Your post has been deleted.", "success");
       } catch (error) {
-        console.error("Error deleting post from component:", error);
+        console.error("Error deleting post:", error);
       }
     }
   };
@@ -70,7 +92,6 @@ const BlogList = () => {
   return (
     <>
       <NavBar />
-      {/* Only render content if authenticated */}
       {isAuthenticated && (
         <div className="min-h-screen bg-gradient-to-br from-white via-blue-50 to-blue-100 px-4 py-12">
           <div className="max-w-6xl mx-auto">
@@ -101,23 +122,19 @@ const BlogList = () => {
                     className="bg-white border border-gray-200 shadow-sm hover:shadow-lg rounded-2xl p-6 transition-shadow duration-300 flex flex-col justify-between"
                   >
                     <div>
-                      {post.imageId ? (
-                        <img
-                          src={`/api/image/${post.imageId}`}
-                          alt={post.title}
-                          className="w-full h-48 object-cover rounded-lg mb-4"
-                          onError={(e) => {
-                            e.currentTarget.onerror = null;
-                            e.currentTarget.src = "/file.svg";
-                          }}
-                        />
-                      ) : (
-                        <img
-                          src="/file.svg"
-                          alt="Placeholder"
-                          className="w-full h-48 object-cover rounded-lg mb-4"
-                        />
-                      )}
+                      <img
+                        src={
+                          post.imageId
+                            ? `/api/image/${post.imageId}`
+                            : "/file.svg"
+                        }
+                        alt={post.title}
+                        className="w-full h-48 object-cover rounded-lg mb-4"
+                        onError={(e) => {
+                          e.currentTarget.onerror = null;
+                          e.currentTarget.src = "/file.svg";
+                        }}
+                      />
 
                       <h2 className="text-2xl font-bold text-gray-900 mb-2">
                         {post.title}
@@ -128,7 +145,7 @@ const BlogList = () => {
                         {format(new Date(post.createdAt), "PPP")}
                       </p>
 
-                      {post.tags && post.tags.length > 0 && (
+                      {post.tags?.length > 0 && (
                         <div className="mt-2 flex flex-wrap gap-2">
                           {post.tags
                             .filter(

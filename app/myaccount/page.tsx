@@ -1,23 +1,26 @@
-"use client"; // If UpdateUsernameForm or NavBar are client components
-
-import React, { useEffect } from "react";
+"use client";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import UpdateUsernameForm from "@/components/auth/UpdateUsernameForm"; // Adjust path
-import useAuthStore from "@/stores/authStore"; // Adjust path
-// import NavBar from "@/components/NavBar"; // Assuming you have a NavBar component
+import { useAuthStore } from "@/stores/authStore";
+import UpdateUsernameForm from "@/components/auth/UpdateUsernameForm";
 
-const MyAccountPage: React.FC = () => {
+export default function MyAccountPage() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const { isAuthenticated, isLoading, setLastPath } = useAuthStore();
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Save current path before potential redirect
+    setLastPath("/myaccount");
+
+    // Only redirect if not loading and not authenticated
+    if (!isLoading && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router, setLastPath]);
 
-  if (!isAuthenticated) {
-    return null; // Or a loading spinner/message while redirecting
+  // Don't render content while loading
+  if (isLoading) {
+    return <div>Loading...</div>;
   }
 
   return (
@@ -38,6 +41,4 @@ const MyAccountPage: React.FC = () => {
       </div>
     </>
   );
-};
-
-export default MyAccountPage;
+}
