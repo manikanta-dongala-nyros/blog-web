@@ -1,7 +1,7 @@
-// pages/api/blogs/upload.ts (your API route)
+// blog/create/[userId]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import clientPromise from "@/lib/mongodb";
-import { getGFS } from "../[id]/route";
+import { getGFS } from "../../[id]/route"; // Fix the import path
 import BlogModel, { IBlog } from "@/models/blogs/blog";
 import mongoose from "mongoose";
 
@@ -11,11 +11,25 @@ export const config = {
   },
 };
 
-export async function POST(request: NextRequest) {
+export async function POST(
+  request: NextRequest,
+  { params }: { params: { userId: string } }
+) {
   try {
     await clientPromise;
 
+    const { userId } = params;
+    console.log("userId on create blog route.ts", userId);
+    if (!userId) {
+      return NextResponse.json(
+        { error: "User ID is required" },
+        { status: 400 }
+      );
+    }
+    // console.log(userId);
+
     const formData = await request.formData();
+    // console.log(formData);
     const data: { [key: string]: any } = {};
     let file: File | null = null;
 
@@ -29,13 +43,20 @@ export async function POST(request: NextRequest) {
       slug: data.slug || data.title.toLowerCase().replace(/\s+/g, "-"),
       content: data.content,
       author: data.author,
+      userId: userId, // Use userId from URL params
       tags: data.tags
         ? data.tags.split(",").map((tag: string) => tag.trim())
         : [],
       published: data.published === "true" || data.published === true,
       createdAt: new Date(),
       updatedAt: new Date(),
+      likes: {
+        likesCount: 0,
+        likedBy: [],
+      }, // <-- Add this default likes object
     };
+
+    console.log(newPostData);
 
     if (file) {
       const gfs = await getGFS();

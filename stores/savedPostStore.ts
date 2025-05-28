@@ -1,13 +1,12 @@
-// store/blogStore.ts
+// store/savedBlogsStore.ts
 import { create } from "zustand";
 import { BlogPost } from "@/types/blog";
 import Swal from "sweetalert2";
 
-interface BlogStore {
+interface SavedBlogsStore {
   posts: BlogPost[];
   selectedPost: BlogPost | null;
   isLoading: boolean;
-  error: string | null; // Add error property
 
   setPosts: (posts: BlogPost[]) => void;
   addPost: (post: BlogPost) => void;
@@ -16,15 +15,15 @@ interface BlogStore {
   selectPost: (post: BlogPost) => void;
   clearSelectedPost: () => void;
   fetchPost: (id: string) => Promise<void>;
-  fetchPosts: () => Promise<void>;
-  likePost: (postId: string, userId: string) => Promise<void>; // Add likePost here
+
+  // fetchPosts now takes userID parameter
+  fetchPosts: (userID: string) => Promise<void>;
 }
 
-export const useBlogStore = create<BlogStore>((set, get) => ({
+export const useSavedBlogsStore = create<SavedBlogsStore>((set) => ({
   posts: [],
   selectedPost: null,
   isLoading: false,
-  error: null, // Initialize error property
 
   setPosts: (posts) => set({ posts }),
 
@@ -46,9 +45,8 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
   fetchPost: async (id: string) => {
     try {
       const response = await fetch(`/api/blog/${id}`);
-      if (!response.ok) {
-        throw new Error("Failed to fetch blog post");
-      }
+      if (!response.ok) throw new Error("Failed to fetch blog post");
+
       const post = await response.json();
       set({ selectedPost: post });
       localStorage.setItem("selectedPost", JSON.stringify(post));
@@ -110,9 +108,7 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
         method: "DELETE",
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to delete blog post");
-      }
+      if (!response.ok) throw new Error("Failed to delete blog post");
 
       set((state) => ({
         posts: state.posts.filter((post) => post.id !== id),
@@ -127,89 +123,39 @@ export const useBlogStore = create<BlogStore>((set, get) => ({
     }
   },
 
-  fetchPosts: async () => {
-    set({ isLoading: true, error: null }); // Clear previous errors on new fetch
+  fetchPosts: async (userID: string) => {
+    set({ isLoading: true });
     try {
-      const response = await fetch("/api/blog/list");
-      if (!response.ok) {
-        const errorData = await response
-          .json()
-          .catch(() => ({ message: "Failed to fetch blog posts" }));
-        throw new Error(errorData.message || "Failed to fetch blog posts");
-      }
+      const response = await fetch(`/api/blog/savedblogs/${userID}`);
+      if (!response.ok) throw new Error("Failed to fetch blog posts");
+
       const posts = await response.json();
 
       const mappedPosts = posts.map((post: any) => ({
         ...post,
         id: post._id,
         tags: post.tags ?? [],
-        likes: post.likes || { likesCount: 0, likedBy: [] }, // Ensure likes is initialized
       }));
 
-      set({ posts: mappedPosts, isLoading: false, error: null });
-    } catch (error: any) {
+      set({ posts: mappedPosts, isLoading: false });
+    } catch (error) {
       console.error("Error fetching blog posts:", error);
-      const errorMessage = error.message || "Failed to fetch blog posts.";
-      set({ isLoading: false, error: errorMessage });
+      set({ isLoading: false });
       Swal.fire({
         icon: "error",
         title: "Fetch Error",
-        text: errorMessage,
+        text: "Failed to fetch blog posts.",
       });
-    }
-  },
-
-  likePost: async (postId: string, userId: string) => {
-    try {
-      const response = await fetch("/api/blog/like", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ postId, userId }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to like the post.");
-      }
-
-      const updatedPostData = await response.json();
-
-      // Update the specific post in the posts array
-      set((state) => ({
-        posts: state.posts.map((post) =>
-          post.id === postId
-            ? { ...post, likes: { likesCount: updatedPostData.likesCount, likedBy: updatedPostData.likedBy } }
-            : post
-        ),
-        // Also update selectedPost if it's the one being liked
-        selectedPost: state.selectedPost?.id === postId 
-            ? { ...state.selectedPost, likes: { likesCount: updatedPostData.likesCount, likedBy: updatedPostData.likedBy } } 
-            : state.selectedPost,
-      }));
-      
-      // Optionally, you might want to call fetchPosts() again or handle state more granularly
-      // For now, this updates the local state based on the API response for the specific post.
-
-    } catch (error: any) {
-      console.error("Error liking post in store:", error);
-      Swal.fire({
-        icon: "error",
-        title: "Like Error",
-        text: error.message || "Failed to update like status.",
-      });
-      // Potentially re-throw the error if the component needs to react to it
-      // throw error;
     }
   },
 }));
 
-// Add hydration for blog store
+// Hydration for saved blogs store
 const hydrateStore = () => {
   const storedPost = localStorage.getItem("selectedPost");
   if (storedPost) {
-    useBlogStore.setState({ selectedPost: JSON.parse(storedPost) });
+    useSavedBlogsStore.setState({ selectedPost: JSON.parse(storedPost) });
   }
 };
 
-// Export hydration function
-export const hydrateBlogStore = hydrateStore;
+export const hydrateSavedBlogsStore = hydrateStore;

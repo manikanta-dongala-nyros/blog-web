@@ -60,3 +60,57 @@ export async function GET(
     );
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  try {
+    await dbConnect();
+    const gfs = await getGFS();
+    const db = mongoose.connection.db!;
+
+    const imageIdString = params.id;
+    if (!mongoose.Types.ObjectId.isValid(imageIdString)) {
+      return NextResponse.json(
+        { error: "Invalid image ID format" },
+        { status: 400 }
+      );
+    }
+    const imageId = new mongoose.Types.ObjectId(imageIdString);
+
+    // Check if the file exists first
+    const filesCollection = db.collection("uploads.files");
+    const fileMeta = await filesCollection.findOne({ _id: imageId });
+
+    if (!fileMeta) {
+      return NextResponse.json({ error: "Image not found" }, { status: 404 });
+    }
+
+    // Find and update any blog posts that use this image
+    const BlogModel = mongoose.models.Blog;
+    await BlogModel.updateMany(
+      { imageId: imageId },
+      {
+        $unset: {
+          imageId: "",
+          imageMimeType: "",
+        },
+      }
+    );
+
+    // Delete the file and its chunks
+    await gfs.delete(imageId);
+
+    return NextResponse.json(
+      { message: "Image deleted successfully" },
+      { status: 200 }
+    );
+  } catch (error: any) {
+    console.error("Error deleting image:", error);
+    return NextResponse.json(
+      { error: "Failed to delete image", details: error.message },
+      { status: 500 }
+    );
+  }
+}

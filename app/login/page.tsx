@@ -6,9 +6,11 @@ import Swal from "sweetalert2";
 import { FormConfig } from "@/components/common/GenericForm/types";
 import GenericForm from "@/components/common/GenericForm/GenericForm";
 import Link from "next/link";
+import { setCookie } from "cookies-next"; // Add this import
 
 export default function LoginPage() {
   const router = useRouter();
+
   const { isAuthenticated, isLoading, lastPath, validateRedirectPath } =
     useAuthStore();
 
@@ -19,7 +21,7 @@ export default function LoginPage() {
     }
   }, [isLoading, isAuthenticated, lastPath, router, validateRedirectPath]);
 
-  const setAuth = useAuthStore((state) => state.setAuth); // Changed from setAuthenticated to setAuth
+  const setAuth = useAuthStore((state) => state.setAuth);
   const setUser = useAuthStore((state) => state.setUser);
 
   const handleSubmit = async (values: any) => {
@@ -37,8 +39,17 @@ export default function LoginPage() {
       }
 
       const userData = await response.json();
-      setAuth(true); // Changed from setAuthenticated to setAuth
+      console.log("User data:", userData.user);
+      setAuth(true);
       setUser(userData);
+
+      // Store user details in cookie
+      setCookie("userId", userData.user._id, {
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
 
       // Get the last path from store or default to home
       const lastPath = useAuthStore.getState().lastPath;
