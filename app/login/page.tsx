@@ -1,24 +1,28 @@
 "use client";
-
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/authStore";
-import GenericForm from "@/components/common/GenericForm/GenericForm";
-import { FormConfig } from "@/components/common/GenericForm/types";
-import Link from "next/link";
 import Swal from "sweetalert2";
+import { FormConfig } from "@/components/common/GenericForm/types";
+import GenericForm from "@/components/common/GenericForm/GenericForm";
+import Link from "next/link";
+import { setCookie } from "cookies-next"; // Add this import
 
 export default function LoginPage() {
   const router = useRouter();
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
-  const setAuthenticated = useAuthStore((state) => state.setAuthenticated);
-  const setUser = useAuthStore((state) => state.setUser); // Get setUser from store
+
+  const { isAuthenticated, isLoading, lastPath, validateRedirectPath } =
+    useAuthStore();
 
   useEffect(() => {
-    if (isAuthenticated) {
-      router.push("/blogs/list"); // Redirect to a different page if already logged in
+    if (!isLoading && isAuthenticated) {
+      const redirectTo = validateRedirectPath(lastPath);
+      router.push(redirectTo);
     }
-  }, [isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, lastPath, router, validateRedirectPath]);
+
+  const setAuth = useAuthStore((state) => state.setAuth);
+  const setUser = useAuthStore((state) => state.setUser);
 
   const handleSubmit = async (values: any) => {
     try {
@@ -34,13 +38,26 @@ export default function LoginPage() {
         throw new Error("Login failed");
       }
 
-      const userData = await response.json(); // Assuming API returns user data like { username: '...' }
+      const userData = await response.json();
+      console.log("User data:", userData.user);
+      setAuth(true);
+      setUser(userData);
 
-      setAuthenticated(true);
-      setUser(userData); // Set user data in the store
+      // Store user details in cookie
+      setCookie("userId", userData.user._id, {
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        path: "/",
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "strict",
+      });
 
-      // Redirect immediately after successful authentication and state update
-      router.push("/blogs/list");
+      // Get the last path from store or default to home
+      const lastPath = useAuthStore.getState().lastPath;
+      // Validate lastPath before redirecting
+      const validPaths = ["/", "/blogs/list", "/blogs/create", "/myaccount"];
+      const redirectPath =
+        lastPath && validPaths.includes(lastPath) ? lastPath : "/";
+      router.push(redirectPath);
 
       Swal.fire({
         icon: "success",
@@ -66,6 +83,13 @@ export default function LoginPage() {
         label: "Email Address",
         type: "email",
         placeholder: "Enter your email",
+        required: true,
+      },
+      {
+        name: "password",
+        label: "Password",
+        type: "password",
+        placeholder: "Enter your password",
         required: true,
       },
     ],

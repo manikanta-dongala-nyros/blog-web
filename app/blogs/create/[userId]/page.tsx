@@ -7,44 +7,74 @@ import Swal from "sweetalert2";
 import GenericForm from "@/components/common/GenericForm/GenericForm";
 import { FormConfig } from "@/components/common/GenericForm/types";
 import NavBar from "@/components/common/GenericForm/Navbar";
-import { useAuthStore } from "@/stores/authStore"; // Import useAuthStore
+import useAuthStore from "@/stores/authStore";
+import { getCookie } from "cookies-next";
 
 const CreateBlog = () => {
   const router = useRouter();
   const addPost = useBlogStore((state) => state.addPost);
   const [loading, setLoading] = useState(false);
-  const isAuthenticated = useAuthStore((state) => state.isAuthenticated); // Get auth state
-  const user = useAuthStore((state) => state.user); // Get user from store
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const user = useAuthStore((state) => state.user);
+
+  // console the user id from cookie
+  const userId = getCookie("userId");
+  // console.log("User id :", userId);
 
   // Effect to check authentication status
   useEffect(() => {
     if (!isAuthenticated) {
-      router.push("/login"); // Redirect to login if not authenticated
+      router.push("/login");
     }
-  }, [isAuthenticated, router]); // Depend on isAuthenticated and router
+  }, [isAuthenticated, router]);
 
-  const [formData, setFormData] = useState({
-    title: "",
-    content: "",
-    author: user?.username || "Unknown", // Use user.username as initial value
-    tags: "",
-    published: false,
+  // Initialize form data from localStorage or default values
+  const [formData, setFormData] = useState(() => {
+    if (typeof window !== "undefined") {
+      const savedFormData = localStorage.getItem("createBlogFormData");
+      if (savedFormData) {
+        return JSON.parse(savedFormData);
+      }
+    }
+    return {
+      title: "",
+      content: "",
+      author: user?.username || "Unknown",
+      userId: userId || "",
+      tags: "",
+      published: false,
+    };
   });
+
+  // Save form data to localStorage whenever it changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("createBlogFormData", JSON.stringify(formData));
+    }
+  }, [formData]);
 
   const handleSubmit = async (values: any) => {
     setLoading(true);
-    const formData = new FormData();
-    formData.append("title", values.title);
-    formData.append("content", values.content);
-    formData.append("author", values.author);
-    formData.append("tags", values.tags);
-    formData.append("published", values.published);
-    if (values.image) {
-      formData.append("file", values.image);
-    }
-
     try {
-      const response = await fetch("/api/blog/create", {
+      const userId = getCookie("userId");
+      console.log("User id wala:", userId);
+      if (!userId) {
+        throw new Error("User ID not found");
+      }
+
+      const formData = new FormData();
+      formData.append("title", values.title);
+      formData.append("content", values.content);
+      formData.append("author", values.author);
+      formData.append("tags", values.tags);
+      formData.append("published", values.published);
+      // set userid
+      formData.append("userId", values.userId);
+      if (values.image) {
+        formData.append("file", values.image);
+      }
+
+      const response = await fetch(`/api/blog/create/${userId}`, {
         method: "POST",
         body: formData,
       });
@@ -53,11 +83,8 @@ const CreateBlog = () => {
         throw new Error("Failed to create blog post");
       }
 
-      const createdPost = await response.json();
-      addPost({
-        ...createdPost,
-        id: createdPost._id?.toString() || createdPost.id,
-      });
+      const newPost = await response.json();
+      addPost(newPost);
 
       Swal.fire({
         icon: "success",
@@ -65,24 +92,15 @@ const CreateBlog = () => {
         text: "Blog post created successfully!",
         timer: 1500,
         showConfirmButton: false,
-      }).then(() => {
-        router.push("/blogs/list");
       });
 
-      setFormData({
-        title: "",
-        content: "",
-        author: "",
-        tags: "",
-        published: false,
-      });
+      router.push("/blogs/list");
     } catch (error) {
       console.error("Error creating blog post:", error);
-
       Swal.fire({
         icon: "error",
         title: "Error",
-        text: "Failed to create blog post.",
+        text: "Failed to create blog post. Please try again.",
       });
     } finally {
       setLoading(false);

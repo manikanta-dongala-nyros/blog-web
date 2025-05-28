@@ -1,36 +1,60 @@
 import { NextResponse } from "next/server";
 import { dbConnect } from "@/lib/dbConnect";
 import User from "@/models/user/user";
+import bcrypt from "bcryptjs";
 
 export async function POST(request: Request) {
   try {
-    // console.log("Attempting to connect to MongoDB...");
     await dbConnect();
-    // console.log("Successfully connected to MongoDB");
 
     const body = await request.json();
-    const { email } = body;
+    const { email, password } = body;
 
-    // Validate email
-    if (!email || typeof email !== "string") {
+    // Validate email and password
+    if (!email || !password || typeof email !== "string" || typeof password !== "string") {
       return NextResponse.json(
-        { error: "Email is required as a string" },
+        { error: "Email and password are required" },
         { status: 400 }
       );
     }
 
-    // Check if the email exists in the database
+    // Check if the user exists
     const user = await User.findOne({ email });
     if (!user) {
       return NextResponse.json(
-        { error: "Email not found in the database" },
-        { status: 404 }
+        { error: "Invalid credentials" },
+        { status: 401 }
       );
     }
 
-    console.log("User  found:", { username: user.username, email: user.email }); // Log only the email for security
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, user.password);
+    if (!isValidPassword) {
+      return NextResponse.json(
+        { error: "Invalid credentials" },
+        { status: 401 }
+      );
+    }
 
-    return NextResponse.json({ success: true, user }, { status: 200 });
+    // Check if email is verified
+    if (!user.isVerified) {
+      return NextResponse.json(
+        { error: "Please verify your email before logging in" },
+        { status: 403 }
+      );
+    }
+
+    // Return user data (excluding sensitive information)
+    const userData = {
+      _id: user._id,
+      email: user.email,
+      username: user.username,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      isVerified: user.isVerified
+    };
+
+    return NextResponse.json({ success: true, user: userData }, { status: 200 });
   } catch (error) {
     console.error("Detailed login error:", error);
     return NextResponse.json(
